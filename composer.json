@@ -18,11 +18,5 @@
 		"psr-0": {
 			"ResqueScheduler": "lib/"
 		}
-	},
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/mcfedr/php-resque.git"
-        }
-    ]
+	}
 }
