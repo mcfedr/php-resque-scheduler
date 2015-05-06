@@ -2,18 +2,11 @@
 <?php
 
 // Find and initialize Composer
-$files = array(
-  __DIR__ . '/../../vendor/autoload.php',
-  __DIR__ . '/../../../autoload.php',
-  __DIR__ . '/../../../../autoload.php',
-  __DIR__ . '/../vendor/autoload.php',
-);
-
-foreach ($files as $file) {
-	if (file_exists($file)) {
-		require_once $file;
-		break;
-	}
+for ($i = 0; $i < 10; $i++) {
+    if (file_exists(__DIR__ . str_repeat('/..', $i) . '/app/autoload.php')) {
+        require_once __DIR__ . str_repeat('/..', $i) . '/app/autoload.php';
+        break;
+    }
 }
 
 if (!class_exists('Composer\Autoload\ClassLoader', false)) {
