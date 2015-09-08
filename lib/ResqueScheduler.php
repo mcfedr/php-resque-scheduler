@@ -21,10 +21,11 @@ class ResqueScheduler
 	 * @param string $queue The name of the queue to place the job in.
 	 * @param string $class The name of the class that contains the code to execute the job.
 	 * @param array $args Any optional arguments that should be passed when the job is executed.
+	 * @param boolean $trackStatus Set to true to be able to monitor the status of a job.
 	 */
-	public static function enqueueIn($in, $queue, $class, array $args = array())
+	public static function enqueueIn($in, $queue, $class, array $args = array(), $trackStatus = false)
 	{
-		self::enqueueAt(time() + $in, $queue, $class, $args);
+		self::enqueueAt(time() + $in, $queue, $class, $args, $trackStatus);
 	}
 
 	/**
@@ -38,12 +39,13 @@ class ResqueScheduler
 	 * @param string $queue The name of the queue to place the job in.
 	 * @param string $class The name of the class that contains the code to execute the job.
 	 * @param array $args Any optional arguments that should be passed when the job is executed.
+	 * @param boolean $trackStatus Set to true to be able to monitor the status of a job.
 	 */
-	public static function enqueueAt($at, $queue, $class, $args = array())
+	public static function enqueueAt($at, $queue, $class, $args = array(), $trackStatus = false)
 	{
 		self::validateJob($class, $queue);
 
-		$job = self::jobToHash($queue, $class, $args);
+		$job = self::jobToHash($queue, $class, $args, $trackStatus);
 		self::delayedPush($at, $job);
 		
 		Resque_Event::trigger('afterSchedule', array(
@@ -95,21 +97,22 @@ class ResqueScheduler
      * Remove a delayed job from the queue
      *
      * note: you must specify exactly the same
-     * queue, class and arguments that you used when you added
+     * queue, class, arguments and trackStatus that you used when you added
      * to the delayed queue
      *
      * also, this is an expensive operation because all delayed keys have tobe
      * searched
      *
-     * @param $queue
-     * @param $class
-     * @param $args
+     * @param string $queue
+     * @param string $class
+     * @param array $args
+	 * @param boolean $trackStatus
      * @return int number of jobs that were removed
      */
-    public static function removeDelayed($queue, $class, $args)
+    public static function removeDelayed($queue, $class, $args, $trackStatus = false)
     {
        $destroyed=0;
-       $item=json_encode(self::jobToHash($queue, $class, $args));
+       $item=json_encode(self::jobToHash($queue, $class, $args, $trackStatus));
        $redis=Resque::redis();
 
        foreach($redis->keys('delayed:*') as $key)
@@ -125,19 +128,20 @@ class ResqueScheduler
      * removed a delayed job queued for a specific timestamp
      *
      * note: you must specify exactly the same
-     * queue, class and arguments that you used when you added
+     * queue, class, arguments and trackStatus that you used when you added
      * to the delayed queue
      *
-     * @param $timestamp
-     * @param $queue
-     * @param $class
-     * @param $args
+     * @param DateTime|int $timestamp
+     * @param string $queue
+     * @param string $class
+     * @param array $args
+	 * @param boolean $trackStatus
      * @return mixed
      */
-    public static function removeDelayedJobFromTimestamp($timestamp, $queue, $class, $args)
+    public static function removeDelayedJobFromTimestamp($timestamp, $queue, $class, $args, $trackStatus = false)
     {
         $key = 'delayed:' . self::getTimestamp($timestamp);
-        $item = json_encode(self::jobToHash($queue, $class, $args));
+        $item = json_encode(self::jobToHash($queue, $class, $args, $trackStatus));
         $redis = Resque::redis();
         $count = $redis->lrem($key, 0, $item);
         self::cleanupTimestamp($key, $timestamp);
@@ -151,15 +155,20 @@ class ResqueScheduler
 	 * @param string $queue Name of the queue the job will be placed on.
 	 * @param string $class Name of the job class.
 	 * @param array $args Array of job arguments.
+	 * @param boolean $trackStatus
+	 * @return array
 	 */
-
-	private static function jobToHash($queue, $class, $args)
+	private static function jobToHash($queue, $class, $args, $trackStatus)
 	{
-		return array(
+		$hash = array(
 			'class' => $class,
 			'args'  => array($args),
-			'queue' => $queue,
+			'queue' => $queue
 		);
+		if ($trackStatus) {
+			$hash['trackStatus'] = $trackStatus;
+		}
+		return $hash;
 	}
 
 	/**
